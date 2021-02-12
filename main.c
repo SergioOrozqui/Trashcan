@@ -33,6 +33,11 @@ char I2Cgetbyte(void)
     return (I2C1RCV);
 }
 
+void I2Csendbyte(char data) {
+    while (I2C1STATbits.TBF); //wait if buffer is full
+    I2C1TRN = data; // pass data to transmission register
+    us_delay(10); // delay to be safe
+}
 void us_delay(int i)
 {
     T1CON = 0x0810; //TMR1 on, 8:1 pre scale
@@ -61,6 +66,7 @@ void _ISRFAST _T3Interrupt( void)
 int main (void)
 {
     InitPWM();
+    I2Cinit(0x9D);
     while(1);
     return 0;
 }

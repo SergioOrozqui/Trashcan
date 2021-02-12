@@ -33,6 +33,15 @@ char I2Cgetbyte(void)
     return (I2C1RCV);
 }
 
+void us_delay(int i)
+{
+    T1CON = 0x0810; //TMR1 on, 8:1 pre scale
+    TMR1 = 0;
+    while(TMR1 < i*2)
+    {
+    }
+}
+
 void InitPWM(void) {
     T3CON = 0x8000; // enable TMR3, 1:1, 16 bit Timer, intclock
     PR3 = 800 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz.

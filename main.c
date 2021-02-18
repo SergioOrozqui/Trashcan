@@ -11,6 +11,7 @@
 #define SERVO_NEUTRAL 94
 #define SERVO_FORWARD 38
 #define SERVO_BACK 150
+int SERVO_MOVE = 0;
 void InitADC(int input)
 {
     AD1CHS = input;    //select analog pins
@@ -80,7 +81,15 @@ void InitPWM(void) {
 
 void _ISRFAST _T3Interrupt( void)
 {
-   OC1RS = SERVO_BACK;		// Count is set in main()                // increment k each Timer interrupt
+    if(SERVO_MOVE)		// Move back
+    {
+        OC1RS = SERVO_BACK;
+    }
+    else
+    {
+        
+        OC1RS = SERVO_FORWARD;
+    }
    _T3IF = 0;      // clear interrupt flag and exit
 } // T3 Interrupt
 void ADCStart()
@@ -92,11 +101,25 @@ void ADCStart()
 }
 int main (void)
 {
+    TRISD = 0xFFFF;
     InitPWM();
+
+    
 //    I2Cinit(0x9D); //enable I2C
 //    I2CStart(); // initiate start condition
 //    I2Csendbyte(0x64); //begin communication with slave
 //    I2CStop(); // halt condition enable bit
-    while(1);
+    
+    while(1)
+    {
+        if(PORTDbits.RD6 == 0)
+        {
+            SERVO_MOVE = 1;
+        }
+        else 
+        {
+            SERVO_MOVE =0;
+        }
+    }
     return 0;
 }

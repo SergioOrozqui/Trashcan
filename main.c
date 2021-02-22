@@ -21,11 +21,13 @@ struct item
 
 #define SERVO_NEUTRAL 94
 #define SERVO_FORWARD 38
-#define SERVO_BACK 150
-
+#define SERVO_BACK 150  
+#define STEP_FULL_TURN 200
+#define STEP_QUART 50
 #define RTS _RF13 // Output, For potential hardware handshaking.
 #define CTS _RF12 // Input, For potential hardware handshaking.
-
+int steps =0;
+int STEP_MOVE = 0;
 int SERVO_MOVE = 0;
 char* types = { "Plastic","Glass","Metal","Trash" };
 
@@ -36,15 +38,48 @@ void I2CStop(void);
 char I2Cgetbyte(void);
 void I2Csendbyte(char data);
 void us_delay(int i);
-void InitPWM(void);
+void InitServo(void);
 void _ISRFAST _T3Interrupt(void);
 void ADCStart();
+void MoveStepQuart(void)
+{
+    STEP_MOVE = 1;
+    while(steps<STEP_QUART);
+    STEP_MOVE = 0;
+    steps = 0;
+}
+void InitStepper()
+{
+    T2CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
+    PR2 = 625 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz
+    _T2IF = 0;      // clear interrupt flag
+    _T2IE = 1;      // enable TMR2 interrupt
+    OC2R = OC2RS = 0;     // initat 50% duty cycle
+                            // OC1R also loaded since first time.
+    OC2CON = 0x0006;    // OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
+    
+}
+void _ISRFAST _T2Interrupt(void)
+{   
+
+    if(STEP_MOVE)
+    {
+        steps++;
+        OC2RS = 312;
+    }
+    else 
+    {
+        OC2RS = 0;
+    }
+    _T2IF = 0;      // clear interrupt flag and exit
+} // T4 Interrupt
+
 void ms_delay(int N)
 {
     us_delay(1000 * N);
 }
 void InitU2(void) {
-    U2BRG = 415; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
+    U2BRG = 34; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
     U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
     // Idle state = 1, 8 data, No parity, 1 Stop bit
     U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
@@ -65,11 +100,13 @@ char getU2(void) {
     RTS = 1; // telling the other side RTS
     return U2RXREG; // from receiving buffer
 } //getU2
-
+char * message = {"abcde"};
 int main(void)
 {
+    int c;
     TRISD = 0xFFFF;
-    InitPWM();
+    InitServo();
+    InitStepper();
     InitU2();
 
     //    I2Cinit(0x9D); //enable I2C
@@ -83,12 +120,21 @@ int main(void)
         {
             SERVO_MOVE = 1;
         }
+        else if(PORTDbits.RD7 == 0)
+        {
+            MoveStepQuart();
+        }
         else
         {
             SERVO_MOVE = 0;
+            STEP_MOVE = 0;
         }
-        putU2('a');
-        ms_delay(2);
+        for(c = 0; c<5;c++)
+        {
+            putU2(message[c]);
+        }
+       
+        ms_delay(10);
 
     }
     return 0;
@@ -154,12 +200,12 @@ void us_delay(int N)
     TMR1 = 0;
 }
 
-void InitPWM(void) {
+void InitServo(void) {
     T3CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
     PR3 = 1250 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz.
     _T3IF = 0;      // clear interrupt flag
     _T3IE = 1;      // enable TMR3 interrupt
-    OC1R = OC1RS = SERVO_FORWARD;     // initat 50% duty cycle
+    OC1R = OC1RS = 625;     // initat 50% duty cycle
                             // OC1R also loaded since first time.
     OC1CON = 0x000E;    // OCTSEL = 1 for Timer3, OCM<2:0> =110 for PWM mode
 } // InitAudio
@@ -184,4 +230,3 @@ void ADCStart()
     AD1CON1bits.DONE = 0;
 
 }
-

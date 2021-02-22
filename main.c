@@ -7,13 +7,27 @@
  */
 
 #include "config.h"
+#include <string.h>
+#include <stdio.h>
+
+struct item
+{
+    float weight;
+    char* type;
+    float volume;
+
+};
+
 
 #define SERVO_NEUTRAL 94
 #define SERVO_FORWARD 38
 #define SERVO_BACK 150
-int SERVO_MOVE = 0;
+
 #define RTS _RF13 // Output, For potential hardware handshaking.
 #define CTS _RF12 // Input, For potential hardware handshaking.
+
+int SERVO_MOVE = 0;
+char* types = { "Plastic","Glass","Metal","Trash" };
 
 void InitADC(int input);
 void I2Cinit(int BRG);
@@ -25,6 +39,10 @@ void us_delay(int i);
 void InitPWM(void);
 void _ISRFAST _T3Interrupt(void);
 void ADCStart();
+void ms_delay(int N)
+{
+    us_delay(1000 * N);
+}
 void InitU2(void) {
     U2BRG = 415; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
     U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
@@ -32,7 +50,7 @@ void InitU2(void) {
     U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
     // Following lines pertain Hardware handshaking
     TRISFbits.TRISF13 = 1; // enable RTS , output
-RTS = 1; // default status , not ready to send
+    RTS = 1; // default status , not ready to send
 }
 char putU2(char c) {
     while (CTS); //wait for !CTS (active low)
@@ -43,7 +61,7 @@ char putU2(char c) {
 
 char getU2(void) {
     RTS = 0; // telling the other side !RTS
-    while (!U2STAbits . URXDA); // wait
+    while (!U2STAbits.URXDA); // wait
     RTS = 1; // telling the other side RTS
     return U2RXREG; // from receiving buffer
 } //getU2
@@ -52,7 +70,7 @@ int main(void)
 {
     TRISD = 0xFFFF;
     InitPWM();
-
+    InitU2();
 
     //    I2Cinit(0x9D); //enable I2C
     //    I2CStart(); // initiate start condition
@@ -69,6 +87,9 @@ int main(void)
         {
             SERVO_MOVE = 0;
         }
+        putU2('a');
+        ms_delay(2);
+
     }
     return 0;
 }
@@ -123,12 +144,13 @@ void I2Csendbyte(char data) {
     I2C2TRN = data; // pass data to transmission register
     us_delay(10); // delay to be safe
 }
-void ms_delay(int N)
+void us_delay(int N)
 {
-    T1CON = 0x8030;
-    int mili_delay = 16;
-    while(TMR1<mili_delay*N)
-    {}
+    T1CON = 0x8000;
+    int u_delay = 16;
+    while (TMR1 < u_delay * N)
+    {
+    }
     TMR1 = 0;
 }
 
@@ -162,3 +184,4 @@ void ADCStart()
     AD1CON1bits.DONE = 0;
 
 }
+

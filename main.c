@@ -18,7 +18,6 @@ struct item
 
 };
 
-
 #define SERVO_NEUTRAL 94
 #define SERVO_FORWARD 38
 #define SERVO_BACK 150  
@@ -28,6 +27,9 @@ struct item
 #define STEP_TIME_DELAY 5//seconds
 #define RTS _RF13 // Output, For potential hardware handshaking.
 #define CTS _RF12 // Input, For potential hardware handshaking.
+#define STEP_DUTY 312
+
+char * message = {"abcde"};
 int steps =0;
 int STEP_MOVE = 0;
 int SERVO_MOVE = 0;
@@ -46,130 +48,21 @@ void _ISRFAST _T3Interrupt(void);
 void ADCStart();
 void StepPlastic();
 int StepCheckTime(int );
-void StepGlass()
-{
-    int curSec = Sec;
-    MoveStep180();
-    while(!StepCheckTime(curSec));
-    MoveStep180();
-}
-void StepTrash()
-{
-    int curSec = Sec;
-    MoveStep270();
-    while(!StepCheckTime(curSec));
-    MoveStep90();
-}
-void StepMetal()
-{
-    ;
-}
-void InitTime(void)
-{
-    _T4IP = 1;
-    TMR4 = 0;
-    T4CON = 0x8030;
-    PR4= 6250 - 1;
-    _T4IF = 0;
-    _T4IE = 1;
+void StepGlass();
+void StepTrash();
+void StepMetal();
+void InitTime();
+void _ISR _T4Interrupt(void);
+void MoveStep90();
+void MoveStep270();
+void MoveStep180();
+void InitStepper();
+void _ISRFAST _T2Interrupt();
+void ms_delay(int);
+void InitU2();
+char PutU2(char c);
+char GetU2();
 
-}//InitTime
-
-void _ISR _T4Interrupt(void)
-{
-    dSec++;
-    if(dSec > 9)
-    {
-        dSec = 0;
-        Sec++;
-        if(Sec > 59)
-        {
-            Sec = 0;
-            Min++;
-            if(Min > 59)
-            {
-                Min = 0;
-                Hr++;
-                if(Hr > 24)
-                {
-                    Hr = 0;
-                }
-            }
-        }
-    }
-    _T4IF = 0;
-}
-void MoveStep90(void)
-{
-    STEP_MOVE = 1;
-    while(steps<STEP_QUART);
-    STEP_MOVE = 0;
-    steps = 0;
-}//MoveStepQuart
-void MoveStep270(void)
-{
-    MoveStep90();
-    MoveStep90();
-    MoveStep90();
-}
-void MoveStep180(void)
-{
-    MoveStep90();
-    MoveStep90();
-}
-void InitStepper()
-{
-    T2CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
-    PR2 = 625 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz
-    _T2IF = 0;      // clear interrupt flag
-    _T2IE = 1;      // enable TMR2 interrupt
-    OC2R = OC2RS = 0;     // initat 50% duty cycle
-                            // OC1R also loaded since first time.
-    OC2CON = 0x0006;    // OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
-    
-}//InitStepper
-void _ISRFAST _T2Interrupt(void)
-{   
-
-    if(STEP_MOVE)
-    {
-        steps++;
-        OC2RS = 312;
-    }
-    else 
-    {
-        OC2RS = 0;
-    }
-    _T2IF = 0;      // clear interrupt flag and exit
-} // T4 Interrupt
-
-void ms_delay(int N)
-{
-    us_delay(1000 * N);
-}//ms_delay
-void InitU2(void) {
-    U2BRG = 34; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
-    U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
-    // Idle state = 1, 8 data, No parity, 1 Stop bit
-    U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
-    // Following lines pertain Hardware handshaking
-    TRISFbits.TRISF13 = 1; // enable RTS , output
-    RTS = 1; // default status , not ready to send
-}//InitU2
-char PutU2(char c) {
-    while (CTS); //wait for !CTS (active low)
-    while (U2STAbits.UTXBF); // Wait if transmit buffer full.
-    U2TXREG = c; // Write value to transmit FIFO
-    return c;
-}//putU2
-
-char GetU2(void) {
-    RTS = 0; // telling the other side !RTS
-    while (!U2STAbits.URXDA); // wait
-    RTS = 1; // telling the other side RTS
-    return U2RXREG; // from receiving buffer
-} //getU2
-char * message = {"abcde"};
 int main(void)
 {
     int c;
@@ -211,6 +104,140 @@ int main(void)
     }
     return 0;
 }//main
+
+char PutU2(char c) {
+    while (CTS); //wait for !CTS (active low)
+    while (U2STAbits.UTXBF); // Wait if transmit buffer full.
+    U2TXREG = c; // Write value to transmit FIFO
+    return c;
+}//putU2
+
+char GetU2(void) {
+    RTS = 0; // telling the other side !RTS
+    while (!U2STAbits.URXDA); // wait
+    RTS = 1; // telling the other side RTS
+    return U2RXREG; // from receiving buffer
+} //getU2
+
+void _ISRFAST _T2Interrupt(void)
+{   
+
+    if(STEP_MOVE)
+    {
+        steps++;
+        OC2RS = STEP_DUTY;
+    }
+    else 
+    {
+        OC2RS = 0;
+    }
+    _T2IF = 0;      // clear interrupt flag and exit
+} // T4 Interrupt
+
+void ms_delay(int N)
+{
+    us_delay(1000 * N);
+}//ms_delay
+
+void InitU2(void) {
+    U2BRG = 34; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
+    U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
+    // Idle state = 1, 8 data, No parity, 1 Stop bit
+    U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
+    // Following lines pertain Hardware handshaking
+    TRISFbits.TRISF13 = 1; // enable RTS , output
+    RTS = 1; // default status , not ready to send
+}//InitU2
+
+void MoveStep90(void)
+{
+    STEP_MOVE = 1;
+    while(steps<STEP_QUART);
+    STEP_MOVE = 0;
+    steps = 0;
+}//MoveStepQuart
+
+void MoveStep270(void)
+{
+    MoveStep90();
+    MoveStep90();
+    MoveStep90();
+}
+
+void MoveStep180(void)
+{
+    MoveStep90();
+    MoveStep90();
+}
+
+void InitStepper()
+{
+    T2CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
+    PR2 = 625 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz
+    _T2IF = 0;      // clear interrupt flag
+    _T2IE = 1;      // enable TMR2 interrupt
+    OC2R = OC2RS = 0;     // initat 50% duty cycle
+                            // OC1R also loaded since first time.
+    OC2CON = 0x0006;    // OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
+    
+}//InitStepper
+
+void _ISR _T4Interrupt(void)
+{
+    dSec++;
+    if(dSec > 9)
+    {
+        dSec = 0;
+        Sec++;
+        if(Sec > 59)
+        {
+            Sec = 0;
+            Min++;
+            if(Min > 59)
+            {
+                Min = 0;
+                Hr++;
+                if(Hr > 23)
+                {
+                    Hr = 0;
+                }
+            }
+        }
+    }
+    _T4IF = 0;
+}
+
+void StepTrash()
+{
+    int curSec = Sec;
+    MoveStep270();
+    while(StepCheckTime(curSec));
+    MoveStep90();
+}
+
+void StepMetal()
+{
+    ;
+}
+
+void InitTime(void)
+{
+    _T4IP = 1;
+    TMR4 = 0;
+    T4CON = 0x8030;
+    PR4= 6250 - 1;
+    _T4IF = 0;
+    _T4IE = 1;
+
+}//InitTime
+
+void StepGlass()
+{
+    int curSec = Sec;
+    MoveStep180();
+    while(StepCheckTime(curSec));
+    MoveStep180();
+}
 
 void I2Cinit(int BRG)
 {
@@ -305,12 +332,13 @@ void InitADC(int input)
 
 int StepCheckTime(int curSec)
 {
-    return (Sec!= curSec&&Sec%STEP_TIME_DELAY - curSec%STEP_TIME_DELAY == 0);
+    return !(Sec!= curSec&&Sec%STEP_TIME_DELAY - curSec%STEP_TIME_DELAY == 0);
 }
+
 void StepPlastic ()
 {
     int curSec = Sec;
     MoveStep90();
-    while(!StepCheckTime(curSec));
+    while(StepCheckTime(curSec));
     MoveStep270();
 }

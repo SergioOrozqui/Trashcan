@@ -403,7 +403,7 @@ void _ISRFAST _T3Interrupt(void)
 
         OC1RS = SERVO_FORWARD;
     }
-    UpdateLCD();
+    updateLCD = true;
     _T3IF = 0;      // clear interrupt flag and exit
 } // T3 Interrupt
 

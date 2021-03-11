@@ -66,6 +66,13 @@ char GetU2();
 
 void UpdateLCD()
 {
+    int deca = Sec;
+    char dopa[5];
+    int result;
+    
+    result = ReadADC(5);
+    sprintf(dopa,"%4d",result);
+    
     LCD_PutChar ( 'C' ) ;
     LCD_PutChar ( 'u' ) ;
     LCD_PutChar ( 'r' ) ;
@@ -76,12 +83,10 @@ void UpdateLCD()
     LCD_PutChar ( 'm' ) ;
     LCD_PutChar ( 'e' ) ;
     LCD_PutChar ( ':' ) ;
+    LCD_PutString ( dopa,4) ;
+
     LCD_PutChar ( ' ' ) ;
     LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( 'm' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( '!' ) ;
     LCD_PutChar ( 'N' ) ;
     LCD_PutChar ( 'i' ) ;
     LCD_PutChar ( 'n' ) ;
@@ -113,6 +118,7 @@ int main(void)
     int c;
     bool updateLCD = false;
     TRISD = 0xFFFF;
+    InitADC();
     InitTime();
     InitServo();
     InitStepper();
@@ -397,6 +403,7 @@ void _ISRFAST _T3Interrupt(void)
 
         OC1RS = SERVO_FORWARD;
     }
+    UpdateLCD();
     _T3IF = 0;      // clear interrupt flag and exit
 } // T3 Interrupt
 

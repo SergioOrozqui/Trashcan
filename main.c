@@ -9,7 +9,7 @@
 #include "config.h"
 #include <string.h>
 #include <stdio.h>
-
+#include "lcd.h"
 struct item
 {
     float weight;
@@ -71,7 +71,24 @@ int main(void)
     InitServo();
     InitStepper();
     InitU2();
-
+    LCD_Initialize();
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( 'P' ) ;
+    LCD_PutChar ( 'o' ) ;
+    LCD_PutChar ( 't' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( '=' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( '6' ) ;
+    LCD_PutChar ( '.' ) ;
+    LCD_PutChar ( '9' ) ;
+    LCD_PutChar ( '420' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( 'V' ) ;
+    LCD_PutChar ( 'd' ) ;
+    LCD_PutChar ( 'c' ) ;
+    LCD_PutChar ( ' ' ) ;
     //    I2Cinit(0x9D); //enable I2C
     //    I2CStart(); // initiate start condition
     //    I2Csendbyte(0x64); //begin communication with slave
@@ -94,12 +111,13 @@ int main(void)
             SERVO_MOVE = 0;
             STEP_MOVE = 0;
         }
-        for(c = 0; c<5;c++)
-        {
-            PutU2(message[c]);
-        }
-       
-        ms_delay(10);
+
+//        for(c = 0; c<5;c++)
+//        {
+//            PutU2(message[c]);
+//        }
+//       
+//        ms_delay(10);
 
     }
     return 0;

@@ -1,23 +1,10 @@
-/* August 22, 2019
- * FILE: Lab5_PWM
- * Start by copying code from Lecture8_PWM.
- * The following is the code for the first part of Lab5.
- * Changing "Value" will change the number of iterations PWM output stays constant.
- * For larger Value, RC filter settles to constant voltage.
- */
 
 #include "config.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "lcd.h"
-struct item
-{
-    float weight;
-    char* type;
-    float volume;
-
-};
 
 #define SERVO_NEUTRAL 94
 #define SERVO_FORWARD 38
@@ -30,93 +17,95 @@ struct item
 #define CTS _RF12 // Input, For potential hardware handshaking.
 #define STEP_DUTY 312
 
-char * message = {"abcde"};
-int steps =0;
+char * beginMessage = {"`x"};
+char getU2 = 'x';
+char recMess[10];
+char* types = { "Plastic","Glass","Metal","Trash" };
+
+volatile int steps =0;
+volatile int dSec = 0, Sec = 0, Min = 0, Hr = 0;
+volatile bool updateLCD = false;
+
 int STEP_MOVE = 0;
 int SERVO_MOVE = 0;
-char* types = { "Plastic","Glass","Metal","Trash" };
-int dSec = 0, Sec = 0, Min = 0, Hr = 0;
 
 void InitADC(void);
+void ReadADC();
+void InitServo(void);
+void ServoMove(int);
+void InitStepper();
+void UpdateLCD();
+
+void InitU2();
+char PutU2(char c);
+char GetU2();
+void PutU2String(char, int);
+
 void I2Cinit(int BRG);
 void I2CStart(void);
 void I2CStop(void);
 char I2Cgetbyte(void);
 void I2Csendbyte(char data);
-void us_delay(int i);
-void InitServo(void);
+
+void _ISRFAST _T2Interrupt();
 void _ISRFAST _T3Interrupt(void);
-void ADCStart();
+void _ISR _T4Interrupt(void);
+
 void StepPlastic();
-int StepCheckTime(int );
 void StepGlass();
 void StepTrash();
 void StepMetal();
 void InitTime();
-void _ISR _T4Interrupt(void);
+int StepCheckTime(int );
+
 void MoveStep90();
 void MoveStep270();
 void MoveStep180();
-void InitStepper();
-void _ISRFAST _T2Interrupt();
+
 void ms_delay(int);
-void InitU2();
-char PutU2(char c);
-char GetU2();
+void us_delay(int i);
 
-void UpdateLCD()
+struct item
 {
-    int deca = Sec;
-    char dopa[5];
-    int result;
-    
-    result = ReadADC(5);
-    sprintf(dopa,"%4d",result);
-    
-    LCD_PutChar ( 'C' ) ;
-    LCD_PutChar ( 'u' ) ;
-    LCD_PutChar ( 'r' ) ;
-    LCD_PutChar ( 'r' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 't' ) ;
-    LCD_PutChar ( 'i' ) ;
-    LCD_PutChar ( 'm' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( ':' ) ;
-    LCD_PutString ( dopa,4) ;
+    float weight;
+    char* type;
+    float volume;
 
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'N' ) ;
-    LCD_PutChar ( 'i' ) ;
-    LCD_PutChar ( 'n' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 't' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'y' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'd' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( 'm' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( '!' ) ;
-}
-int ReadADC( int ch)
-{
-    AD1CHS = ch; // 1. select analog input channel
-    // start sampling, automatic conversion will follow
-    AD1CON1bits.SAMP = 1; // 2. Start sampling.
-    while( !AD1CON1bits.DONE); //5. wait for conversion to complete
-    AD1CON1bits.DONE = 0; // 6. clear flag. We are responsible see text.
-    return ADC1BUF0; // 7. read the conversion results
-} // ReadADC
+};
+
+
+
+
+
+
+//char * GetU2String(void)
+//{
+//    char letter;
+//
+//    int c=0;
+//    letter = GetU2();
+//   while(letter != '\0')
+//   {
+//       letter = GetU2(); 
+//       recMess[c]= letter; 
+//        c++;
+//   }
+//    recMess[c] = '\0';
+//
+//    return recMess;
+//
+//}
+
+
 int main(void)
 {
+    
     int c;
-    bool updateLCD = false;
+
+    
+    recMess[0]= 'x';
+    recMess[1]= 'x';
+    recMess[2]= '\0';
     TRISD = 0xFFFF;
     InitADC();
     InitTime();
@@ -167,14 +156,46 @@ int main(void)
     {
         if (PORTDbits.RD6 == 0)
         {
-            updateLCD = true;
-            //SERVO_MOVE = 1;
             
+            PutU2String(beginMessage,3);
+            recMess[0] = GetU2();
+            recMess[1] = GetU2();
+            recMess[2] = GetU2();
+            if (recMess[0] = '`')    
+            {
+                switch(recMess[1])
+                {
+                        case 'a':
+                            StepMetal();
+                            break;
+
+                        case 'p':
+                            StepPlastic();
+                            break;
+
+                        case 'g':
+                            StepGlass();
+                            break;
+
+                        case 'u':
+                            StepTrash();
+                            break;
+
+                        case 'n':
+                            StepTrash();
+                            break;
+                }
+                //SERVO_MOVE = 1;
+
+            }
         }
         else if(PORTDbits.RD7 == 0)
         {
+            
+            StepGlass();
             //MoveStepQuart();
-            LCD_ClearScreen();
+            //LCD_ClearScreen
+            
             
         }
         else if(updateLCD)
@@ -184,20 +205,61 @@ int main(void)
         }
         else
         {
-            SERVO_MOVE = 0;
+            //SERVO_MOVE = 0;
             STEP_MOVE = 0;
         }
 
-//        for(c = 0; c<5;c++)
-//        {
-//            PutU2(message[c]);
-//        }
-//       
-//        ms_delay(10);
+       // for(c = 0; c<15;c++)
+      //  {
+//            PutU2(beginMessage[c]);
+//            getU2 = GetU2();
+      //  }
+       
+        ms_delay(10);
 
     }
     return 0;
 }//main
+void MoveStep90(void)
+{
+    STEP_MOVE = 1;
+    while(steps<STEP_QUART);
+    STEP_MOVE = 0;
+    steps = 0;
+}//MoveStepQuart
+
+void MoveStep270(void)
+{
+    MoveStep90();
+    MoveStep90();
+    MoveStep90();
+}//MoveStep270
+
+void MoveStep180(void)
+{
+    MoveStep90();
+    MoveStep90();
+}//MoveStep180
+
+void InitU2(void) {
+    U2BRG = 34; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
+    U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
+    // Idle state = 1, 8 data, No parity, 1 Stop bit
+    U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
+    // Following lines pertain Hardware handshaking
+    TRISFbits.TRISF13 = 1; // enable RTS , output
+    RTS = 1; // default status , not ready to send
+}//InitU2
+
+void PutU2String(char* str, int len)
+{
+    int c;
+    
+    for(c = 0; c<len;c++)
+    {
+        PutU2(str[c]);
+    }
+}//PutU2String
 
 char PutU2(char c) {
     while (CTS); //wait for !CTS (active low)
@@ -226,55 +288,23 @@ void _ISRFAST _T2Interrupt(void)
         OC2RS = 0;
     }
     _T2IF = 0;      // clear interrupt flag and exit
-} // T4 Interrupt
+} // T2 Interrupt
 
-void ms_delay(int N)
+void _ISRFAST _T3Interrupt(void)
 {
-    us_delay(1000 * N);
-}//ms_delay
+    if (SERVO_MOVE)		// Move back
+    {
+        OC1RS = SERVO_BACK;
+    }
+    else
+    {
 
-void InitU2(void) {
-    U2BRG = 34; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
-    U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
-    // Idle state = 1, 8 data, No parity, 1 Stop bit
-    U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
-    // Following lines pertain Hardware handshaking
-    TRISFbits.TRISF13 = 1; // enable RTS , output
-    RTS = 1; // default status , not ready to send
-}//InitU2
-
-void MoveStep90(void)
-{
-    STEP_MOVE = 1;
-    while(steps<STEP_QUART);
-    STEP_MOVE = 0;
-    steps = 0;
-}//MoveStepQuart
-
-void MoveStep270(void)
-{
-    MoveStep90();
-    MoveStep90();
-    MoveStep90();
-}
-
-void MoveStep180(void)
-{
-    MoveStep90();
-    MoveStep90();
-}
-
-void InitStepper()
-{
-    T2CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
-    PR2 = 625 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz
-    _T2IF = 0;      // clear interrupt flag
-    _T2IE = 1;      // enable TMR2 interrupt
-    OC2R = OC2RS = 0;     // initat 50% duty cycle
-                            // OC1R also loaded since first time.
-    OC2CON = 0x0006;    // OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
+        OC1RS = SERVO_FORWARD;
+    }
+    updateLCD = true;
     
-}//InitStepper
+    _T3IF = 0;      // clear interrupt flag and exit
+} // T3 Interrupt
 
 void _ISR _T4Interrupt(void)
 {
@@ -299,39 +329,54 @@ void _ISR _T4Interrupt(void)
         }
     }
     _T4IF = 0;
-}
+} //T4 Interrupt
+
+void InitStepper()
+{
+    T2CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
+    PR2 = 625 - 1;  // 20 kHz 
+    _T2IF = 0;      // clear interrupt flag
+    _T2IE = 1;      // enable TMR2 interrupt
+    OC2R = OC2RS = 0;     // initat 50% duty cycle
+                            // OC1R also loaded since first time.
+    OC2CON = 0x0006;    // OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
+    
+}//InitStepper
 
 void StepTrash()
 {
     int curSec = Sec;
     MoveStep270();
+    ServoMove(1);
     while(StepCheckTime(curSec));
     MoveStep90();
-}
-
-void StepMetal()
-{
-    ;
-}
-
-void InitTime(void)
-{
-    _T4IP = 1;
-    TMR4 = 0;
-    T4CON = 0x8030;
-    PR4= 6250 - 1;
-    _T4IF = 0;
-    _T4IE = 1;
-
-}//InitTime
+    ServoMove(0);
+}//StepTrash
 
 void StepGlass()
 {
     int curSec = Sec;
     MoveStep180();
+    ServoMove(1);
     while(StepCheckTime(curSec));
     MoveStep180();
-}
+    ServoMove(0);
+}//StepGlass
+
+void StepPlastic()
+{
+    int curSec = Sec;
+    MoveStep90();
+    ServoMove(1);
+    while(StepCheckTime(curSec));
+    MoveStep270();
+    ServoMove(0); 
+}//StepPlastic
+
+void StepMetal()
+{
+    ;
+}//StepMetal
 
 void I2Cinit(int BRG)
 {
@@ -372,6 +417,11 @@ void I2Csendbyte(char data) {
     us_delay(10); // delay to be safe
 }//I2Csendbyte
 
+void ms_delay(int N)
+{
+    us_delay(1000 * N);
+}//ms_delay
+
 void us_delay(int N)
 {
     T1CON = 0x8000;
@@ -384,30 +434,18 @@ void us_delay(int N)
 
 void InitServo(void) {
     T3CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
-    PR3 = 1250 - 1;  // 20 kHz for Lab5. see Equ. 14-1 of data sheet, Fcy=16MHz.
+    PR3 = 1250 - 1;  // 20 kHz 
     _T3IF = 0;      // clear interrupt flag
     _T3IE = 1;      // enable TMR3 interrupt
     OC1R = OC1RS = 625;     // initat 50% duty cycle
                             // OC1R also loaded since first time.
     OC1CON = 0x000E;    // OCTSEL = 1 for Timer3, OCM<2:0> =110 for PWM mode
-} // InitAudio
+} // InitServo
 
-void _ISRFAST _T3Interrupt(void)
+void ServoMove(int i)
 {
-    if (SERVO_MOVE)		// Move back
-    {
-        OC1RS = SERVO_BACK;
-    }
-    else
-    {
-
-        OC1RS = SERVO_FORWARD;
-    }
-    updateLCD = true;
-    _T3IF = 0;      // clear interrupt flag and exit
-} // T3 Interrupt
-
-
+    SERVO_MOVE = i;
+}//ServoMove
 
 void InitADC(void)
 {
@@ -418,15 +456,67 @@ void InitADC(void)
     AD1CON1bits.ADON = 1; //activate ADC 
 }//InitADC
 
+int ReadADC( int ch)
+{
+    AD1CHS = ch; // 1. select analog input channel
+    // start sampling, automatic conversion will follow
+    AD1CON1bits.SAMP = 1; // 2. Start sampling.
+    while( !AD1CON1bits.DONE); //5. wait for conversion to complete
+    AD1CON1bits.DONE = 0; // 6. clear flag. We are responsible see text.
+    return ADC1BUF0; // 7. read the conversion results
+} // ReadADC
+
+void InitTime(void)
+{
+    _T4IP = 1;
+    TMR4 = 0;
+    T4CON = 0x8030;
+    PR4= 6250 - 1;
+    _T4IF = 0;
+    _T4IE = 1;
+}//InitTime
+
 int StepCheckTime(int curSec)
 {
     return !(Sec!= curSec&&Sec%STEP_TIME_DELAY - curSec%STEP_TIME_DELAY == 0);
-}
+}//StepCheckTime
 
-void StepPlastic ()
+void UpdateLCD()
 {
-    int curSec = Sec;
-    MoveStep90();
-    while(StepCheckTime(curSec));
-    MoveStep270();
-}
+    int deca = Sec;
+    char dopa[5];
+    int result;
+    
+    result = ReadADC(5);
+    sprintf(dopa,"%4d",result);
+    
+    LCD_PutChar ( 'C' ) ;
+    LCD_PutChar ( 'u' ) ;
+    LCD_PutChar ( 'r' ) ;
+    LCD_PutChar ( 'r' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( 't' ) ;
+    LCD_PutChar ( 'i' ) ;
+    LCD_PutChar ( 'm' ) ;
+    LCD_PutChar ( 'e' ) ;
+    LCD_PutChar ( ':' ) ;
+    LCD_PutString ( dopa,4) ;
+
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( 'M' ) ;
+    LCD_PutChar ( 'e' ) ;
+    LCD_PutChar ( 's' ) ;
+    LCD_PutChar ( 's' ) ;
+    LCD_PutChar ( ':' ) ;
+    LCD_PutString ( recMess,2 ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( 'y' ) ;
+    LCD_PutChar ( 'o' ) ;
+    LCD_PutChar ( ' ' ) ;
+    LCD_PutChar ( 'd' ) ;
+    LCD_PutChar ( 'o' ) ;
+    LCD_PutChar ( 'm' ) ;
+    LCD_PutChar ( 'e' ) ;
+    LCD_PutChar ( '!' ) ;
+}//UpdateLCD

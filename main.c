@@ -1,4 +1,20 @@
+/*Senior Design Project: Smart Recycling Bin
+ *main.c
+ *The University of Akron
+ *Department of Electrical and Computer Engineering
+ *Authors: Brandon Bannavong, Sergio Orozco
+ *Design Team: 14
+ * 
+ *Purpose: This program receives and transmits various signals to 
+ *and from the PIC24FJ128GA010 microcontroller (PIM) mounted on the
+ *Explorer 16/32 development board. Data collected is used to determine
+ *positioning and timing for both the stepper motor and servo. Remaining 
+ *bin capacity and item classification are tracked and displayed to the user. 
+ *Communication with the NVIDIA Jetson Nano (visual detection system) 
+ *is performed using the UART communication protocol.
+ */
 
+//Include statements
 #include "config.h"
 #include <string.h>
 #include <stdio.h>
@@ -6,6 +22,7 @@
 #include <stdbool.h>
 #include "lcd.h"
 
+//Define statements
 #define SERVO_NEUTRAL 94
 #define SERVO_FORWARD 38
 #define SERVO_BACK 150  
@@ -17,20 +34,22 @@
 #define CTS _RF12 // Input, For potential hardware handshaking.
 #define STEP_DUTY 312
 
+//Global variables
 char * beginMessage = {"`x"};
 char getU2 = 'x';
 char recMess[10];
 char* types = { "Plastic","Glass","Metal","Trash" };
-
 volatile int steps =0;
 volatile int dSec = 0, Sec = 0, Min = 0, Hr = 0;
 volatile bool updateLCD = false;
-
 int STEP_MOVE = 0;
 int SERVO_MOVE = 0;
 
+
+//Function prototypes
+int StepCheckTime(int );
+int ReadADC(int);
 void InitADC(void);
-void ReadADC();
 void InitServo(void);
 void ServoMove(int);
 void InitStepper();
@@ -39,13 +58,7 @@ void UpdateLCD();
 void InitU2();
 char PutU2(char c);
 char GetU2();
-void PutU2String(char, int);
-
-void I2Cinit(int BRG);
-void I2CStart(void);
-void I2CStop(void);
-char I2Cgetbyte(void);
-void I2Csendbyte(char data);
+void PutU2String(char *, int);
 
 void _ISRFAST _T2Interrupt();
 void _ISRFAST _T3Interrupt(void);
@@ -56,7 +69,7 @@ void StepGlass();
 void StepTrash();
 void StepMetal();
 void InitTime();
-int StepCheckTime(int );
+
 
 void MoveStep90();
 void MoveStep270();
@@ -65,43 +78,20 @@ void MoveStep180();
 void ms_delay(int);
 void us_delay(int i);
 
-struct item
+struct Item
 {
-    float weight;
+    int weight;
     char* type;
     float volume;
-
 };
 
 
-
-
-
-
-//char * GetU2String(void)
-//{
-//    char letter;
-//
-//    int c=0;
-//    letter = GetU2();
-//   while(letter != '\0')
-//   {
-//       letter = GetU2(); 
-//       recMess[c]= letter; 
-//        c++;
-//   }
-//    recMess[c] = '\0';
-//
-//    return recMess;
-//
-//}
-
-
+//Begin main routine
 int main(void)
 {
-    
-    int c;
 
+    int c;
+    struct Item Item1;
     
     recMess[0]= 'x';
     recMess[1]= 'x';
@@ -146,17 +136,11 @@ int main(void)
     LCD_PutChar ( 'm' ) ;
     LCD_PutChar ( 'e' ) ;
     LCD_PutChar ( '!' ) ;
-   
-    //    I2Cinit(0x9D); //enable I2C
-    //    I2CStart(); // initiate start condition
-    //    I2Csendbyte(0x64); //begin communication with slave
-    //    I2CStop(); // halt condition enable bit
-
+    
     while (1)
     {
         if (PORTDbits.RD6 == 0)
-        {
-            
+        {           
             PutU2String(beginMessage,3);
             recMess[0] = GetU2();
             recMess[1] = GetU2();
@@ -167,36 +151,36 @@ int main(void)
                 {
                         case 'a':
                             StepMetal();
+                            Item1.type = types[2];
                             break;
 
                         case 'p':
                             StepPlastic();
+                            Item1.type = types[0];
                             break;
 
                         case 'g':
                             StepGlass();
+                            Item1.type = types[1];
                             break;
 
                         case 'u':
                             StepTrash();
+                            Item1.type = types[3];
                             break;
 
                         case 'n':
                             StepTrash();
+                            Item1.type = types[3];
                             break;
-                }
-                //SERVO_MOVE = 1;
-
+                }             
             }
         }
         else if(PORTDbits.RD7 == 0)
-        {
-            
+        {  
             StepGlass();
             //MoveStepQuart();
-            //LCD_ClearScreen
-            
-            
+            //LCD_ClearScreen 
         }
         else if(updateLCD)
         {
@@ -205,22 +189,16 @@ int main(void)
         }
         else
         {
-            //SERVO_MOVE = 0;
+            SERVO_MOVE = 0;
             STEP_MOVE = 0;
-        }
-
-       // for(c = 0; c<15;c++)
-      //  {
-//            PutU2(beginMessage[c]);
-//            getU2 = GetU2();
-      //  }
-       
+        } 
         ms_delay(10);
-
     }
     return 0;
 }//main
-void MoveStep90(void)
+
+//Rotate stepper motor 90 degrees
+void MoveStep90(void) 
 {
     STEP_MOVE = 1;
     while(steps<STEP_QUART);
@@ -228,6 +206,7 @@ void MoveStep90(void)
     steps = 0;
 }//MoveStepQuart
 
+//Rotate stepper motor 270 degrees
 void MoveStep270(void)
 {
     MoveStep90();
@@ -235,66 +214,80 @@ void MoveStep270(void)
     MoveStep90();
 }//MoveStep270
 
+//Rotate stepper motor 180 degrees
 void MoveStep180(void)
 {
     MoveStep90();
     MoveStep90();
 }//MoveStep180
 
+//Initialize UART communication protocol
 void InitU2(void) {
-    U2BRG = 34; // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy= 16MHz.
-    U2MODE = 0x8008; // See data sheet, pg148. Enable UART2, BRGH = 1,
-    // Idle state = 1, 8 data, No parity, 1 Stop bit
-    U2STA = 0x0400; // See data sheet, pg. 150, Transmit Enable
-    // Following lines pertain Hardware handshaking
-    TRISFbits.TRISF13 = 1; // enable RTS , output
-    RTS = 1; // default status , not ready to send
+    U2BRG = 34;             // PIC24FJ128GA010 data sheet, 17.1 for calculation, Fcy = 16MHz.
+    U2MODE = 0x8008;        // See data sheet, pg148. Enable UART2, BRGH = 1,
+                            // Idle state = 1, 8 data, No parity, 1 Stop bit
+    U2STA = 0x0400;         // See data sheet, pg. 150, Transmit Enable
+                            // Following lines pertain Hardware handshaking
+    TRISFbits.TRISF13 = 1;  // enable RTS , output
+    RTS = 1;                // default status , not ready to send
 }//InitU2
 
+/* Transmit a string using UART
+ * Parameters: Character string, integer length of string
+ * Returns: Nothing
+ */
 void PutU2String(char* str, int len)
 {
     int c;
-    
     for(c = 0; c<len;c++)
     {
         PutU2(str[c]);
     }
 }//PutU2String
 
+/*Transmit a character using UART
+ *Parameters: Input character
+ *Returns: Input character
+ */
 char PutU2(char c) {
     while (CTS); //wait for !CTS (active low)
     while (U2STAbits.UTXBF); // Wait if transmit buffer full.
     U2TXREG = c; // Write value to transmit FIFO
     return c;
-}//putU2
+}//PutU2
 
+/*Receive a character using UART
+ *Parameters: None
+ *Returns: UART receive buffer
+ */
 char GetU2(void) {
     RTS = 0; // telling the other side !RTS
     while (!U2STAbits.URXDA); // wait
     RTS = 1; // telling the other side RTS
     return U2RXREG; // from receiving buffer
-} //getU2
+} //GetU2
 
+//Stepper motor interrupt
 void _ISRFAST _T2Interrupt(void)
 {   
-
     if(STEP_MOVE)
     {
         steps++;
-        OC2RS = STEP_DUTY;
+        OC2RS = STEP_DUTY; //Set value of output compare register 2
     }
     else 
     {
         OC2RS = 0;
     }
-    _T2IF = 0;      // clear interrupt flag and exit
+    _T2IF = 0;// clear interrupt flag and exit
 } // T2 Interrupt
 
+//Servo interrupt
 void _ISRFAST _T3Interrupt(void)
 {
-    if (SERVO_MOVE)		// Move back
+    if (SERVO_MOVE)	
     {
-        OC1RS = SERVO_BACK;
+        OC1RS = SERVO_BACK;//Set value of output compare register 1
     }
     else
     {
@@ -303,9 +296,10 @@ void _ISRFAST _T3Interrupt(void)
     }
     updateLCD = true;
     
-    _T3IF = 0;      // clear interrupt flag and exit
+    _T3IF = 0;//Clear interrupt flag and exit
 } // T3 Interrupt
 
+//Timer interrupt 
 void _ISR _T4Interrupt(void)
 {
     dSec++;
@@ -328,21 +322,23 @@ void _ISR _T4Interrupt(void)
             }
         }
     }
-    _T4IF = 0;
+    _T4IF = 0;//Clear interrupt flag
 } //T4 Interrupt
 
+//Generate PWM signal for stepper motor
 void InitStepper()
 {
-    T2CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
-    PR2 = 625 - 1;  // 20 kHz 
-    _T2IF = 0;      // clear interrupt flag
-    _T2IE = 1;      // enable TMR2 interrupt
-    OC2R = OC2RS = 0;     // initat 50% duty cycle
-                            // OC1R also loaded since first time.
-    OC2CON = 0x0006;    // OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
+    T2CON = 0x8030;     //Enable TMR3, 1:256, 16 bit Timer, intclock
+    PR2 = 625 - 1;      //100 Hz 
+    _T2IF = 0;          //Clear interrupt flag
+    _T2IE = 1;          //Enable TMR2 interrupt
+    OC2R = OC2RS = 0;   //Initialize at 0% duty cycle
+                        //OC2R also loaded since first time.
+    OC2CON = 0x0006;    //OCTSEL = 0 for Timer2, OCM<2:0> =110 for PWM mode
     
 }//InitStepper
 
+//Direct stepper motor towards trash bin, open servo trapdoor, return both to original position
 void StepTrash()
 {
     int curSec = Sec;
@@ -353,6 +349,7 @@ void StepTrash()
     ServoMove(0);
 }//StepTrash
 
+//Direct stepper motor towards glass bin, open servo trapdoor, return both to original position
 void StepGlass()
 {
     int curSec = Sec;
@@ -363,6 +360,7 @@ void StepGlass()
     ServoMove(0);
 }//StepGlass
 
+//Direct stepper motor towards plastic bin, open servo trapdoor, return both to original position
 void StepPlastic()
 {
     int curSec = Sec;
@@ -373,73 +371,42 @@ void StepPlastic()
     ServoMove(0); 
 }//StepPlastic
 
+//Direct stepper motor towards metal bin, open servo trapdoor, return both to original position
 void StepMetal()
 {
+    int curSec = Sec;
+    ServoMove(1);
+    while(StepCheckTime(curSec));
+    ServoMove(0);
     ;
 }//StepMetal
 
-void I2Cinit(int BRG)
-{
-    I2C2BRG = BRG;
-    while (I2C2STATbits.P); //Check if bus is idle
-    I2C2CONbits.A10M = 0; //Select 7-bit address mode
-    I2C2CONbits.I2CEN = 1; //I2C Enable
-}//I2Cinit
-
-void I2CStart(void)
-{
-    us_delay(20);
-    I2C2CONbits.SEN = 1; //Initiates start condition on SDAx and SCLx pins
-    while (I2C2CONbits.SEN); //Await start condition
-    us_delay(20);
-}//I2CStart
-
-void I2CStop(void)
-{
-    us_delay(20);
-    I2C2CONbits.PEN = 1; //Halts condition enable bit
-    while (I2C2CONbits.PEN); //Await stop conditon
-    us_delay(20);
-}//I2CStop
-
-char I2Cgetbyte(void)
-{
-    I2C2CONbits.RCEN = 1; //Enable I2C receive mode
-    while (!I2C2STATbits.RBF); //Wait for byte to shift into I2C1RCV register
-    I2C2CONbits.ACKEN = 1; //Master sends acknowledge
-    us_delay(20);
-    return (I2C2RCV);
-}//I2Cgetbyte
-
-void I2Csendbyte(char data) {
-    while (I2C2STATbits.TBF); //wait if buffer is full
-    I2C2TRN = data; // pass data to transmission register
-    us_delay(10); // delay to be safe
-}//I2Csendbyte
-
+//Delay in millisecond increments
 void ms_delay(int N)
 {
     us_delay(1000 * N);
 }//ms_delay
 
+//Delay in microsecond increments
 void us_delay(int N)
 {
-    T1CON = 0x8000;
+    T1CON = 0x8000; //Enable timer 1
     int u_delay = 16;
     while (TMR1 < u_delay * N)
     {
     }
-    TMR1 = 0;
+    TMR1 = 0;       //Reset timer 1
 }//us_delay
 
+//Generate PWM for servo
 void InitServo(void) {
-    T3CON = 0x8030; // enable TMR3, 1:256, 16 bit Timer, intclock
-    PR3 = 1250 - 1;  // 20 kHz 
-    _T3IF = 0;      // clear interrupt flag
-    _T3IE = 1;      // enable TMR3 interrupt
-    OC1R = OC1RS = 625;     // initat 50% duty cycle
-                            // OC1R also loaded since first time.
-    OC1CON = 0x000E;    // OCTSEL = 1 for Timer3, OCM<2:0> =110 for PWM mode
+    T3CON = 0x8030;     //Enable TMR3, 1:256, 16 bit Timer, Initialize clock
+    PR3 = 1250 - 1;     //50 Hz 
+    _T3IF = 0;          //Clear interrupt flag
+    _T3IE = 1;          //Enable TMR3 interrupt
+    OC1R = OC1RS = 625; //Initialize at 50% duty cycle
+                        //OC1R also loaded since first time.
+    OC1CON = 0x000E;    //OCTSEL = 1 for Timer3, OCM<2:0> =110 for PWM mode
 } // InitServo
 
 void ServoMove(int i)
@@ -447,35 +414,44 @@ void ServoMove(int i)
     SERVO_MOVE = i;
 }//ServoMove
 
+//Initialize analog to digital converter
 void InitADC(void)
 {
-    AD1CON1 = 0x00E0;   //auto-convert mode
-    AD1CON2 = 0;        //using MUXA, AVss and AVdd as Vref
-    AD1CON3 = 0x1F01;   //Tad = 2 * Tcy = 125ns
-    AD1CSSL = 0;        //no scanning
-    AD1CON1bits.ADON = 1; //activate ADC 
+    AD1CON1 = 0x00E0;     //Select auto-convert mode
+    AD1CON2 = 0;          //Using MUXA, AVss and AVdd as Vref
+    AD1CON3 = 0x1F01;     //Tad = 2 * Tcy = 125ns
+    AD1CSSL = 0;          //No scanning
+    AD1CON1bits.ADON = 1; //Activate ADC 
 }//InitADC
 
-int ReadADC( int ch)
+/*Read ADC value
+ *Parameters: Channel select (integer)
+ *Returns: ADC buffer (integer)
+ */
+int ReadADC(int ch)
 {
-    AD1CHS = ch; // 1. select analog input channel
-    // start sampling, automatic conversion will follow
-    AD1CON1bits.SAMP = 1; // 2. Start sampling.
-    while( !AD1CON1bits.DONE); //5. wait for conversion to complete
-    AD1CON1bits.DONE = 0; // 6. clear flag. We are responsible see text.
-    return ADC1BUF0; // 7. read the conversion results
+    AD1CHS = ch;               //Select analog input channel
+    AD1CON1bits.SAMP = 1;      //Start sampling.
+    while( !AD1CON1bits.DONE); //Wait for conversion to complete
+    AD1CON1bits.DONE = 0;      //Clear flag
+    return ADC1BUF0;           //Return the ADC buffer
 } // ReadADC
 
+//Initialize global timer
 void InitTime(void)
 {
-    _T4IP = 1;
-    TMR4 = 0;
-    T4CON = 0x8030;
-    PR4= 6250 - 1;
-    _T4IF = 0;
-    _T4IE = 1;
+    _T4IP = 1;      //Set interrupt priority
+    T4CON = 0x8030; //Initialize timer 4
+    TMR4 = 0;       //Reset timer 4 value
+    PR4= 6250 - 1;  //100 Hz
+    _T4IF = 0;      //Clear interrupt flag
+    _T4IE = 1;      //Enable timer 4
 }//InitTime
 
+/*Check current second of global timer (used for delays)
+ *Parameters: Integer Sec
+ *Returns: Integer when curSec = STEP_TIME_DELAY 
+ */
 int StepCheckTime(int curSec)
 {
     return !(Sec!= curSec&&Sec%STEP_TIME_DELAY - curSec%STEP_TIME_DELAY == 0);

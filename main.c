@@ -37,7 +37,7 @@
 //Global variables
 char * beginMessage = {"`x"};
 char getU2 = 'x';
-char recMess[10];
+volatile char recMess[10];
 char* types = { "Plastic","Glass","Metal","Trash" };
 volatile int steps =0;
 volatile int dSec = 0, Sec = 0, Min = 0, Hr = 0;
@@ -54,6 +54,7 @@ void InitServo(void);
 void ServoMove(int);
 void InitStepper();
 void UpdateLCD();
+void SendDetectionMsg();
 
 void InitU2();
 char PutU2(char c);
@@ -141,10 +142,11 @@ int main(void)
     {
         if (PORTDbits.RD6 == 0)
         {           
-            PutU2String(beginMessage,3);
-            recMess[0] = GetU2();
-            recMess[1] = GetU2();
-            recMess[2] = GetU2();
+//            PutU2String(beginMessage,3);
+//            recMess[0] = GetU2();
+//            recMess[1] = GetU2();
+//            recMess[2] = GetU2();
+            SendDetectionMsg();
             if (recMess[0] = '`')    
             {
                 switch(recMess[1])
@@ -165,7 +167,7 @@ int main(void)
                             break;
 
                         case 'u':
-                            StepTrash();
+                            StepPlastic();
                             Item1.type = types[3];
                             break;
 
@@ -196,6 +198,15 @@ int main(void)
     }
     return 0;
 }//main
+
+void SendDetectionMsg(void)
+{
+    PutU2String(beginMessage,4);
+    recMess[0] = GetU2();
+    recMess[1] = GetU2();
+    recMess[2] = GetU2();
+    
+}
 
 //Rotate stepper motor 90 degrees
 void MoveStep90(void) 
@@ -404,7 +415,7 @@ void InitServo(void) {
     PR3 = 1250 - 1;     //50 Hz 
     _T3IF = 0;          //Clear interrupt flag
     _T3IE = 1;          //Enable TMR3 interrupt
-    OC1R = OC1RS = 625; //Initialize at 50% duty cycle
+    OC1R = OC1RS = SERVO_BACK; //Initialize at 50% duty cycle
                         //OC1R also loaded since first time.
     OC1CON = 0x000E;    //OCTSEL = 1 for Timer3, OCM<2:0> =110 for PWM mode
 } // InitServo
@@ -463,7 +474,7 @@ void UpdateLCD()
     char dopa[5];
     int result;
     
-    result = ReadADC(5);
+    result = ReadADC(3);
     sprintf(dopa,"%4d",result);
     
     LCD_PutChar ( 'C' ) ;

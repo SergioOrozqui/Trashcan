@@ -43,7 +43,7 @@ def download_images():
 CWD = os.getcwd()
 #print("The CWD is: "+CWD)
 #IMAGE_PATHS = download_images()
-IMAGE_PATHS = [CWD+"/test_img/test5.jpg"]
+IMAGE_PATHS = [CWD+"/test_img/brandon.jpg"]
 
 # %%
 # Download the model
@@ -147,6 +147,52 @@ import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings('ignore')   # Suppress Matplotlib warnings
 import cv2
+import serial
+
+serial_port = serial.Serial(
+    port="/dev/ttyTHS1",
+    baudrate=115200,
+    bytesize=serial.EIGHTBITS,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+)
+time.sleep(1)
+
+#mess = ""
+
+def GetDetectionMessage():
+    result = ""
+    print("waiting for detection message!")
+    try:
+
+        while True:
+            if serial_port.inWaiting()>0:
+                data = serial_port.read()
+                print(data)
+                result = result+str(data)
+                if data == b'\0':
+                    break
+    except Exception as exception_error:
+        print("Error occurred in UART communication.")
+        print("Error: " + str(exception_error))
+    print("message received!")
+    print(str(result))
+    return result
+
+#def 
+
+
+
+def getCameraImg():
+    vid = cv2.VideoCapture
+    count = 0
+    ret, frame = vid.read()
+    cv2.imwrite("eval_img/eval.jpg")
+    
+    
+    return 
+     
+
 def load_image_into_numpy_array(path):
     """Load an image from file into a numpy array.
 
@@ -172,9 +218,10 @@ def load_image_into_numpy_array(path):
         image = np.array(Image.open(path))
     return image
 
+#GetDetectionMessage()
 
 for image_path in IMAGE_PATHS:
-
+    
     print('Running inference for {}... '.format(image_path), end='')
 
     image_np = load_image_into_numpy_array(image_path)
@@ -192,8 +239,8 @@ for image_path in IMAGE_PATHS:
         output_details = interpreter.get_output_details()
 
         input_data = image_np
-        #print(input_details)
-        #print(output_details)
+        print(input_details)
+        print(output_details)
         interpreter.set_tensor(input_details[0]['index'], input_data)
         interpreter.invoke()
         print(interpreter.get_tensor(output_details[0]['index']))
@@ -208,6 +255,11 @@ for image_path in IMAGE_PATHS:
         print(output_dict['detection_classes'])
         print(output_dict['detection_scores'])
         image_np_with_detections = image_np.copy()
+        for item_detected in output_dict['detection_classes'][0]:
+            #print(item_detected)
+            if item_detected == 43:
+                print("BOTTLE DETECTED!!!!!42069")
+            
         #viz_utils.visualize_boxes_and_labels_on_image_array(
         #      image_np_with_detections,
         #      output_dict['detection_boxes'],

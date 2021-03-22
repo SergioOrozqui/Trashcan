@@ -105,38 +105,6 @@ int main(void)
     InitU2();
     LCD_Initialize();
     LCD_ClearScreen();
-    LCD_PutChar ( 'N' ) ;
-    LCD_PutChar ( 'i' ) ;
-    LCD_PutChar ( 'n' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 't' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'y' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'd' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( 'm' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( '!' ) ;
-    LCD_PutChar ( 'N' ) ;
-    LCD_PutChar ( 'i' ) ;
-    LCD_PutChar ( 'n' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 't' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'y' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( ' ' ) ;
-    LCD_PutChar ( 'd' ) ;
-    LCD_PutChar ( 'o' ) ;
-    LCD_PutChar ( 'm' ) ;
-    LCD_PutChar ( 'e' ) ;
-    LCD_PutChar ( '!' ) ;
     
     while (1)
     {

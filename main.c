@@ -84,6 +84,7 @@ struct Item
     int weight;
     char* type;
     float volume;
+    bool isMetal;
 };
 
 
@@ -92,7 +93,9 @@ int main(void)
 {
 
     int c;
-    struct Item Item1;
+   
+    TRISA = 0x0000;
+    TRISG = 0xFFFF;
     
     recMess[0]= 'x';
     recMess[1]= 'x';
@@ -106,51 +109,100 @@ int main(void)
     LCD_Initialize();
     LCD_ClearScreen();
     
+   
     while (1)
     {
+        
         if (PORTDbits.RD6 == 0)
-        {           
+        {    
+             struct Item Item1;
 //            PutU2String(beginMessage,3);
 //            recMess[0] = GetU2();
 //            recMess[1] = GetU2();
 //            recMess[2] = GetU2();
+            if(PORTDbits.RD13 == 0)
+            {
+                Item1.isMetal = true;
+                
+            }
+             
+             
             SendDetectionMsg();
             if (recMess[0] = '`')    
             {
                 switch(recMess[1])
                 {
+                   
+                    
                         case 'a':
+                    
                             StepMetal();
+                            Item1.isMetal = true;
                             Item1.type = types[2];
                             break;
-
+                    
                         case 'p':
                             StepPlastic();
+                            Item1.isMetal = false;
                             Item1.type = types[0];
                             break;
 
                         case 'g':
                             StepGlass();
+                            Item1.isMetal = false;
                             Item1.type = types[1];
                             break;
 
                         case 'u':
                             StepPlastic();
+                            Item1.isMetal = false;
                             Item1.type = types[3];
                             break;
 
                         case 'n':
-                            StepTrash();
-                            Item1.type = types[3];
+                            
+//                            StepTrash();
+//                            Item1.isMetal = false;
+//                            Item1.type = types[3];
+                            
+                            if(Item1.isMetal)
+                            {
+                                StepMetal();
+                                Item1.type = types[2];
+                            }
+                            else
+                            {
+                                StepTrash();
+                                Item1.type = types[3];
+                                Item1.isMetal = false;  
+                            }
+                            
+                            break;
+                            
+                            
                             break;
                 }             
             }
         }
-        else if(PORTDbits.RD7 == 0)
-        {  
-            StepGlass();
+            //StepGlass();
             //MoveStepQuart();
             //LCD_ClearScreen 
+        
+        else if(PORTDbits.RD13 != 0)
+        {
+            LATAbits.LATA1 = 1;
+            ms_delay(20);
+            LATAbits.LATA1 = 0;
+        }
+        else if(PORTDbits.RD7 == 0)
+        {
+            if(PORTDbits.RD13 == 0)
+            {
+                struct Item Item1;
+                Item1.isMetal = true;
+                StepMetal();
+                
+            }
         }
         else if(updateLCD)
         {
@@ -166,6 +218,7 @@ int main(void)
     }
     return 0;
 }//main
+
 
 void SendDetectionMsg(void)
 {

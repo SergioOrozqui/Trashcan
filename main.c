@@ -33,6 +33,9 @@
 #define RTS _RF13 // Output, For potential hardware handshaking.
 #define CTS _RF12 // Input, For potential hardware handshaking.
 #define STEP_DUTY 312
+#define ADC_PIN_22 3 //channel 3 for ADC
+
+
 
 //Global variables
 char * beginMessage = {"`x"};
@@ -91,16 +94,13 @@ struct Item
 //Begin main routine
 int main(void)
 {
-
     int c;
-   
     TRISA = 0x0000;
-    TRISG = 0xFFFF;
-    
+    TRISD = 0xFFFF;
     recMess[0]= 'x';
     recMess[1]= 'x';
     recMess[2]= '\0';
-    TRISD = 0xFFFF;
+    
     InitADC();
     InitTime();
     InitServo();
@@ -113,27 +113,29 @@ int main(void)
     while (1)
     {
         
-        if (PORTDbits.RD6 == 0)
+        if (PORTDbits.RD7 == 0)
         {    
              struct Item Item1;
-//            PutU2String(beginMessage,3);
-//            recMess[0] = GetU2();
-//            recMess[1] = GetU2();
-//            recMess[2] = GetU2();
+             
             if(PORTDbits.RD13 == 0)
             {
-                Item1.isMetal = true;
-                
-            }
-             
+                Item1.isMetal = true;            
+            }         
              
             SendDetectionMsg();
+            
             if (recMess[0] = '`')    
             {
-                switch(recMess[1])
+                if(Item1.isMetal)
                 {
-                   
-                    
+                    StepMetal();
+                    Item1.type = types[2];
+                    Item1.isMetal = false;
+                }
+                else
+                {
+                    switch(recMess[1])
+                    {                                    
                         case 'a':
                     
                             StepMetal();
@@ -160,50 +162,15 @@ int main(void)
                             break;
 
                         case 'n':
-                            
-//                            StepTrash();
-//                            Item1.isMetal = false;
-//                            Item1.type = types[3];
-                            
-                            if(Item1.isMetal)
-                            {
-                                StepMetal();
-                                Item1.type = types[2];
-                            }
-                            else
-                            {
-                                StepTrash();
-                                Item1.type = types[3];
-                                Item1.isMetal = false;  
-                            }
-                            
+                                              
+                            StepTrash();
+                            Item1.type = types[3];
+                            Item1.isMetal = false;                            
                             break;
-                            
-                            
-                            break;
-                }             
-            }
-        }
-            //StepGlass();
-            //MoveStepQuart();
-            //LCD_ClearScreen 
-        
-        else if(PORTDbits.RD13 != 0)
-        {
-            LATAbits.LATA1 = 1;
-            ms_delay(20);
-            LATAbits.LATA1 = 0;
-        }
-        else if(PORTDbits.RD7 == 0)
-        {
-            if(PORTDbits.RD13 == 0)
-            {
-                struct Item Item1;
-                Item1.isMetal = true;
-                StepMetal();
-                
-            }
-        }
+                    }//switch                                                                              
+                }//else             
+            }//if
+        }//if
         else if(updateLCD)
         {
             UpdateLCD();
@@ -219,14 +186,15 @@ int main(void)
     return 0;
 }//main
 
-
 void SendDetectionMsg(void)
 {
     PutU2String(beginMessage,4);
+    us_delay(500);
     recMess[0] = GetU2();
+    us_delay(500);
     recMess[1] = GetU2();
-    recMess[2] = GetU2();
-    
+    us_delay(500);
+    recMess[2] = GetU2();  
 }
 
 //Rotate stepper motor 90 degrees
@@ -371,7 +339,7 @@ void InitStepper()
 }//InitStepper
 
 //Direct stepper motor towards trash bin, open servo trapdoor, return both to original position
-void StepTrash()
+void StepMetal()
 {
     int curSec = Sec;
     MoveStep270();
@@ -382,7 +350,7 @@ void StepTrash()
 }//StepTrash
 
 //Direct stepper motor towards glass bin, open servo trapdoor, return both to original position
-void StepGlass()
+void StepTrash()
 {
     int curSec = Sec;
     MoveStep180();
@@ -404,7 +372,7 @@ void StepPlastic()
 }//StepPlastic
 
 //Direct stepper motor towards metal bin, open servo trapdoor, return both to original position
-void StepMetal()
+void StepGlass()
 {
     int curSec = Sec;
     ServoMove(1);
@@ -464,7 +432,7 @@ int ReadADC(int ch)
 {
     AD1CHS = ch;               //Select analog input channel
     AD1CON1bits.SAMP = 1;      //Start sampling.
-    while( !AD1CON1bits.DONE); //Wait for conversion to complete
+    while(!AD1CON1bits.DONE); //Wait for conversion to complete
     AD1CON1bits.DONE = 0;      //Clear flag
     return ADC1BUF0;           //Return the ADC buffer
 } // ReadADC

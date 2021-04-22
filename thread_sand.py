@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 """
-Object Detection From TF2 Saved Model
+Trashcan V 1.0.6
 =====================================
 """
 
 # %%
-# This demo will take you through the steps of running an "out-of-the-box" TensorFlow 2 compatible
-# detection model on a collection of images. More specifically, in this example we will be using
-# the `Saved Model Format <https://www.tensorflow.org/guide/saved_model>`__ to load the model.
+# Parts of this code were reused from the open source Tensorflow guides to run Saved
+# and TFlite models using a tkinter GUI 
 
 # %%
 # Download the test images
@@ -232,12 +231,12 @@ def load_image_into_numpy_array(path):
         img_rgb = cv2.resize(img_rgb, (300, 300), cv2.INTER_AREA)
         img_rgb = img_rgb.reshape([1, 300, 300, 3])
         image = img_rgb
-        #image = np.array(Image.open(path))
+
     else:
         image = np.array(Image.open(path))
     return image
 
-#GetDetectionMessage()
+
 class GUI:
     def __init__(self, master):
         self.master = master
@@ -358,26 +357,8 @@ class ThreadedTask(threading.Thread):
                     elif str(b'n') in final_detection:
                         trash_gui.update_final_label("Trash")
                     trash_gui.update_eval_img()
-                    #for item_detected in output_dict['detection_classes'][0]:
-                    #   print(item_detected)
-                    #    if item_detected == 43:
-                    #        print("BOTTLE DETECTED!!!!!42069")
-                    #        serial_port.write(b"`u9")
-                            
-                        #else:
-                            #serial_port.write(b"`n9")
-                            #break
-                    #viz_utils.visualize_boxes_and_labels_on_image_array(
-                    #      image_np_with_detections,
-                    #      output_dict['detection_boxes'],
-                    #      output_dict['detection_classes'],
-                    #      output_dict['detection_scores'][0],
-                    #      category_index,
-                    #      use_normalized_coordinates=True,
-                    #      max_boxes_to_draw=200,
-                    #      min_score_thresh=.30,
-                    #      agnostic_mode=False)
-
+                #this else statement is incomplete as the detector is only made to run on the Jetson Nano
+                #and saved models were found to be extremely slow at runtime. 
                 else:
                 
                     # The input needs to be a tensor, convert it using `tf.convert_to_tensor`.

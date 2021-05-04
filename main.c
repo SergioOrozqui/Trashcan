@@ -34,8 +34,7 @@
 #define CTS _RF12 // Input, For potential hardware handshaking.
 #define STEP_DUTY 312
 #define ADC_PIN_22 3 //channel 3 for ADC
-
-
+#define WEIGHT_THRESHOLD 290 //weight threshold for glass bottles
 
 //Global variables
 char * beginMessage = {"`x"};
@@ -47,11 +46,15 @@ volatile int dSec = 0, Sec = 0, Min = 0, Hr = 0;
 volatile bool updateLCD = false;
 int STEP_MOVE = 0;
 int SERVO_MOVE = 0;
+int loadCell = 0;
+
+
 
 
 //Function prototypes
 int StepCheckTime(int );
 int ReadADC(int);
+int ReadLoadCell();
 void InitADC(void);
 void InitServo(void);
 void ServoMove(int);
@@ -88,6 +91,8 @@ struct Item
     char* type;
     float volume;
     bool isMetal;
+    bool isGlass;
+    
 };
 
 
@@ -95,6 +100,7 @@ struct Item
 int main(void)
 {
     int c;
+
     TRISA = 0x0000;
     TRISD = 0xFFFF;
     recMess[0]= 'x';
@@ -120,7 +126,18 @@ int main(void)
             if(PORTDbits.RD13 == 0)
             {
                 Item1.isMetal = true;            
-            }         
+            }    
+             
+            if(ReadLoadCell() > WEIGHT_THRESHOLD)
+            {
+                Item1.isGlass = true;
+            }
+            else
+            {
+                Item1.isGlass = false;
+            }
+     
+            
              
             SendDetectionMsg();
             
@@ -130,8 +147,10 @@ int main(void)
                 {
                     StepMetal();
                     Item1.type = types[2];
-                    Item1.isMetal = false;
-                }
+                    Item1.isMetal = false;    
+                    Item1.isGlass = false;
+                    PutU2String("`a",3);
+                }              
                 else
                 {
                     switch(recMess[1])
@@ -140,34 +159,55 @@ int main(void)
                     
                             StepMetal();
                             Item1.isMetal = true;
+                            Item1.isGlass = false;
                             Item1.type = types[2];
+                            PutU2String("`a",3);
                             break;
                     
                         case 'p':
                             StepPlastic();
                             Item1.isMetal = false;
+                            Item1.isGlass = false;
                             Item1.type = types[0];
+                            PutU2String("`p",3);
                             break;
 
                         case 'g':
                             StepGlass();
                             Item1.isMetal = false;
-                            Item1.type = types[1];
+                            Item1.isGlass = true;
+                            Item1.type = types[1];  
+                            PutU2String("`g",3);
                             break;
 
                         case 'u':
-                            StepPlastic();
-                            Item1.isMetal = false;
-                            Item1.type = types[3];
-                            break;
+                            if(ReadLoadCell() > WEIGHT_THRESHOLD)
+                            {
+                                StepGlass();
+                                Item1.isMetal = false;
+                                Item1.isGlass = true;
+                                Item1.type = types[1];
+                                PutU2String("`g",3);
+                            }
+                            else
+                            {
+                                StepPlastic();
+                                Item1.isMetal = false;
+                                Item1.isGlass = false;
+                                Item1.type = types[3]; 
+                                PutU2String("`p",3);
+                            }
 
-                        case 'n':
-                                              
+                            break;
+                            
+                        case 'n':                                            
                             StepTrash();
                             Item1.type = types[3];
-                            Item1.isMetal = false;                            
+                            Item1.isMetal = false;   
+                            Item1.isGlass = false;
+                            PutU2String("`n",3);
                             break;
-                    }//switch                                                                              
+                        }//switch                                                                              
                 }//else             
             }//if
         }//if
@@ -457,14 +497,19 @@ int StepCheckTime(int curSec)
     return !(Sec!= curSec&&Sec%STEP_TIME_DELAY - curSec%STEP_TIME_DELAY == 0);
 }//StepCheckTime
 
+int ReadLoadCell()
+{    
+    loadCell = ReadADC(ADC_PIN_22);
+ 
+    return loadCell; 
+}
 void UpdateLCD()
 {
     int deca = Sec;
     char dopa[5];
-    int result;
     
-    result = ReadADC(3);
-    sprintf(dopa,"%4d",result);
+    
+    sprintf(dopa,"%4d",loadCell);
     
     LCD_PutChar ( 'C' ) ;
     LCD_PutChar ( 'u' ) ;
